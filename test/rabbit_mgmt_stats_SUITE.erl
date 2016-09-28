@@ -135,11 +135,11 @@ format_rate_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_rate_no_range, []).
 
 format_rate_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_rate_format_no_range/0, [], 100).
-
-prop_rate_format_no_range() ->
-    prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
-		false, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
+			      false, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 prop_format(Id, SampleSize, Check, Incremental, RangeFun) ->
     ?FORALL(
@@ -158,22 +158,22 @@ format_zero_rate_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_zero_rate_no_range, []).
 
 format_zero_rate_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_zero_rate_format_no_range/0, [], 100).
-
-prop_zero_rate_format_no_range() ->
-    prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
-		false, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
+			      false, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Rates for 3 or more monotonically increasing incremental samples will always be > 0
 format_incremental_rate_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_rate_no_range, []).
 
 format_incremental_rate_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_rate_format_no_range/0, [], 100).
-
-prop_incremental_rate_format_no_range() ->
-    prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
-		true, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
+			      true, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Rates for 1 or no samples will always be 0.0 as there aren't
 %% enough datapoints to calculate the instant rate
@@ -181,30 +181,30 @@ format_incremental_zero_rate_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_zero_rate_no_range, []).
 
 format_incremental_zero_rate_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_zero_rate_format_no_range/0, [], 100).
-
-prop_incremental_zero_rate_format_no_range() ->
-    prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
-		true, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
+			      true, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Checking totals
 format_total_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_total_no_range, []).
 
 format_total_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_total_format_no_range/0, [], 100).
-
-prop_total_format_no_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_total/4, false, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_total/4, false, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_incremental_total_no_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_total_no_range, []).
 
 format_incremental_total_no_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_total_format_no_range/0, [], 100).
-
-prop_incremental_total_format_no_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_total/4, true, fun no_range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_total/4, true, fun no_range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %%---------------------
 %% Requests using range
@@ -213,10 +213,11 @@ format_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_rate_range, []).
 
 format_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_rate_format_range/0, [], 100).
-
-prop_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end), false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
+			      false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Rates for 1 or no samples will always be 0.0 as there aren't
 %% enough datapoints to calculate the instant rate
@@ -224,21 +225,22 @@ format_zero_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_zero_rate_range, []).
 
 format_zero_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_zero_rate_format_range/0, [], 100).
-
-prop_zero_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
-		false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
+			      false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Rates for 3 or more monotonically increasing incremental samples will always be > 0
 format_incremental_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_rate_range, []).
 
 format_incremental_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_rate_format_range/0, [], 100).
-
-prop_incremental_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end), true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, rate_check(fun(Rate) -> Rate > 0 end),
+			      true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Rates for 1 or no samples will always be 0.0 as there aren't
 %% enough datapoints to calculate the instant rate
@@ -246,83 +248,84 @@ format_incremental_zero_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_zero_rate_range, []).
 
 format_incremental_zero_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_zero_rate_format_range/0, [], 100).
-
-prop_incremental_zero_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end), true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, small, rate_check(fun(Rate) -> Rate == 0.0 end),
+			      true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 %% Checking totals
 format_total_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_total_range, []).
 
 format_total_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_total_format_range/0, [], 100).
-
-prop_total_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_total/4, false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_total/4, false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_incremental_total_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_total_range, []).
 
 format_incremental_total_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_total_format_range/0, [], 100).
-
-prop_incremental_total_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_total/4, true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_total/4, true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_samples_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_samples_range, []).
 
 format_samples_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_samples_format_range/0, [], 100).
-
-prop_samples_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_samples/4, false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_samples/4, false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_incremental_samples_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_samples_range, []).
 
 format_incremental_samples_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_samples_format_range/0, [], 100).
-
-prop_incremental_samples_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_samples/4, true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_samples/4, true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_avg_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_avg_rate_range, []).
 
 format_avg_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_avg_rate_format_range/0, [], 100).
-
-prop_avg_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_avg_rate/4, false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_avg_rate/4, false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_incremental_avg_rate_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_avg_rate_range, []).
 
 format_incremental_avg_rate_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_avg_rate_format_range/0, [], 100).
-
-prop_incremental_avg_rate_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_avg_rate/4, true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_avg_rate/4, true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_avg_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_avg_range, []).
 
 format_avg_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_avg_format_range/0, [], 100).
-
-prop_avg_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_avg/4, false, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_avg/4, false, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 
 format_incremental_avg_range_test(Config) ->
     true == rabbit_ct_broker_helpers:rpc(Config, 0, ?MODULE, format_incremental_avg_range, []).
 
 format_incremental_avg_range() ->
-    rabbit_ct_proper_helpers:run_proper(fun prop_incremental_avg_format_range/0, [], 100).
-
-prop_incremental_avg_format_range() ->
-    prop_format(?FUNCTION_NAME, large, fun check_avg/4, true, fun range/1).
+    Fun = fun() ->
+		  prop_format(?FUNCTION_NAME, large, fun check_avg/4, true, fun range/1)
+	  end,
+    rabbit_ct_proper_helpers:run_proper(Fun, [], 100).
 %% -------------------------------------------------------------------
 %% Helpers
 %% -------------------------------------------------------------------
