@@ -854,13 +854,6 @@ count_created_stats(Type, all) ->
 count_created_stats(Type, User) ->
     length(rabbit_mgmt_util:filter_user(created_stats(Type), User)).
 
-%% TODO: this needs to be called properly node-locally
-% detail_stats(Table, Type, Id, Ranges, Interval) ->
-%     [begin
-% 	 S = rabbit_mgmt_stats:format(pick_range(Type, Ranges), Table, Key, Interval),
-% 	 [{stats, S} | format_detail_id(revert(Id, Key))]
-%      end || Key <- rabbit_mgmt_stats:get_keys(Table, Id)].
-
 format_detail_id(ChPid) when is_pid(ChPid) ->
     augment_msg_stats([{channel, ChPid}]);
 format_detail_id(#resource{name = Name, virtual_host = Vhost, kind = Kind}) ->
