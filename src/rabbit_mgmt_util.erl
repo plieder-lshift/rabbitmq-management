@@ -455,8 +455,8 @@ invalid_pagination(Type,Reason, ReqData, Context) ->
     halt_response(400, Type, Reason, ReqData, Context).
 
 halt_response(Code, Type, Reason, ReqData, Context) ->
-    Json = {struct, [{error, Type},
-                     {reason, rabbit_mgmt_format:tuple(Reason)}]},
+    Json = #{<<"error">>  => Type,
+             <<"reason">> => rabbit_mgmt_format:tuple(Reason)},
     {ok, ReqData1} = cowboy_req:reply(Code,
         [{<<"content-type">>, <<"application/json">>}],
         rabbit_json:encode(Json), ReqData),
@@ -494,7 +494,10 @@ with_decode(Keys, Body, ReqData, Context, Fun) ->
 
 decode(Keys, Body) ->
     case decode(Body) of
-        {ok, J0} -> J = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- J0],
+        {ok, J0} ->
+                    J = maps:fold(fun(K, V, Acc) ->
+                        Acc#{binary_to_atom(K, latin1) => V}
+                    end, J0, J0),
                     Results = [get_or_missing(K, J) || K <- Keys],
                     case [E || E = {key_missing, _} <- Results] of
                         []      -> {ok, Results, J};
@@ -513,7 +516,7 @@ decode(Body) ->
     end.
 
 get_or_missing(K, L) ->
-    case pget(K, L) of
+    case maps:get(K, L, undefined) of
         undefined -> {key_missing, K};
         V         -> V
     end.
