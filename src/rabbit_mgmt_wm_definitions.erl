@@ -298,7 +298,7 @@ add_parameter(Param) ->
     VHost = pget(vhost,     Param),
     Comp  = pget(component, Param),
     Key   = pget(name,      Param),
-    Term  = rabbit_misc:json_to_term(pget(value, Param)),
+    Term  = pget(value,     Param),
     case rabbit_runtime_parameters:set(VHost, Comp, Key, Term, none) of
         ok                -> ok;
         {error_string, E} -> S = rabbit_misc:format(" (~s/~s/~s)",
@@ -314,7 +314,7 @@ add_policy(VHost, Param) ->
     Key   = pget(name,  Param),
     case rabbit_policy:set(
            VHost, Key, pget(pattern, Param),
-           rabbit_misc:json_to_term(pget(definition, Param)),
+           pget(definition, Param),
            pget(priority, Param),
            pget('apply-to', Param, <<"all">>)) of
         ok                -> ok;

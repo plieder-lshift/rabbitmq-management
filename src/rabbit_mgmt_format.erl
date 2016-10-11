@@ -156,13 +156,13 @@ port(Port) when is_number(Port) -> Port;
 port(Port)                      -> print("~w", Port).
 
 properties(unknown) -> unknown;
-properties(Table)   -> {struct, [{Name, tuple(Value)} ||
-                                    {Name, Value} <- Table]}.
+properties(Table)   -> maps:from_list([{Name, tuple(Value)} ||
+                                    {Name, Value} <- Table]).
 
 amqp_table(unknown)   -> unknown;
 amqp_table(undefined) -> amqp_table([]);
-amqp_table(Table)     -> {struct, [{Name, amqp_value(Type, Value)} ||
-                                      {Name, Type, Value} <- Table]}.
+amqp_table(Table)     -> maps:from_list([{Name, amqp_value(Type, Value)} ||
+                                      {Name, Type, Value} <- Table]).
 
 amqp_value(array, Vs)                  -> [amqp_value(T, V) || {T, V} <- Vs];
 amqp_value(table, V)                   -> amqp_table(V);
@@ -184,7 +184,7 @@ split_lines(<<Text:76/binary, Rest/binary>>) ->
 split_lines(Text) ->
     Text.
 
-parameter(P) -> pset(value, rabbit_misc:term_to_json(pget(value, P)), P).
+parameter(P) -> pset(value, pget(value, P), P).
 
 tuple(unknown)                    -> unknown;
 tuple(Tuple) when is_tuple(Tuple) -> [tuple(E) || E <- tuple_to_list(Tuple)];
@@ -292,6 +292,7 @@ tokenise(Str) ->
                   tokenise(string:sub_string(Str, Count + 2))]
     end.
 
+%% @todo that one is tough
 to_amqp_table({struct, T}) ->
     to_amqp_table(T);
 to_amqp_table(T) ->

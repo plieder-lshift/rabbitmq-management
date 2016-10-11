@@ -198,7 +198,7 @@ reply(Facts, ReqData, Context) ->
 reply0(Facts, ReqData, Context) ->
     ReqData1 = set_resp_header("Cache-Control", "no-cache", ReqData),
     try
-        {mochijson2:encode(rabbit_mgmt_format:format_nulls(Facts)), ReqData1,
+        {rabbit_json:encode(rabbit_mgmt_format:format_nulls(Facts)), ReqData1,
 	 Context}
     catch exit:{json_encode, E} ->
             Error = iolist_to_binary(
@@ -459,7 +459,7 @@ halt_response(Code, Type, Reason, ReqData, Context) ->
                      {reason, rabbit_mgmt_format:tuple(Reason)}]},
     {ok, ReqData1} = cowboy_req:reply(Code,
         [{<<"content-type">>, <<"application/json">>}],
-        mochijson2:encode(Json), ReqData),
+        rabbit_json:encode(Json), ReqData),
     {halt, ReqData1, Context}.
 
 id(Key, ReqData) when Key =:= exchange;
@@ -508,8 +508,7 @@ decode(<<"">>) ->
 
 decode(Body) ->
     try
-        {struct, J} = mochijson2:decode(Body),
-        {ok, J}
+        {ok, rabbit_json:decode(Body)}
     catch error:_ -> {error, not_json}
     end.
 
