@@ -383,7 +383,7 @@ sum(Now, [Slide = #slide{interval = Interval, size = Size, incremental = true} |
 sum(Now, [Slide = #slide{size = Size, interval = Interval} | _] = All) ->
     Start = Now - Size,
     Fun = fun({TS, Value}, Dict) ->
-                  Factor = round((TS - Start) / Interval),
+                  Factor = ceil((TS - Start) / Interval),
                   NewTS = Start + Interval * Factor,
                   orddict:update(NewTS, fun(V) -> add_to_total(V, Value) end,
                                  Value, Dict)
