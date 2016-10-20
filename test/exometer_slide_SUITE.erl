@@ -60,8 +60,8 @@ end_per_testcase(_, _Config) ->
 %% -------------------------------------------------------------------
 elements_gen() ->
     ?LET(Length, oneof([1, 2, 3, 7, 8, 20]),
-	 ?LET(Elements, list(vector(Length, int())),
-	      [erlang:list_to_tuple(E) || E <- Elements])).
+     ?LET(Elements, list(vector(Length, int())),
+          [erlang:list_to_tuple(E) || E <- Elements])).
 
 %% -------------------------------------------------------------------
 %% Testcases.
