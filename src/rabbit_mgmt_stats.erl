@@ -61,13 +61,13 @@ format_sum(Range, Interval, Table, VHosts) ->
 
 lookup_all(Table, Ids, SecondKey) ->
     Slides = lists:foldl(fun(Id, Acc) ->
-				 case ets:lookup(Table, {Id, SecondKey}) of
-				     [] ->
-                         Acc;
-				     [{_, Slide}] ->
-                         [Slide | Acc]
-				 end
-			 end, [], Ids),
+                                 case ets:lookup(Table, {Id, SecondKey}) of
+                                     [] ->
+                                         Acc;
+                                     [{_, Slide}] ->
+                                         [Slide | Acc]
+                                 end
+                         end, [], Ids),
     case Slides of
         [] ->
             not_found;
@@ -87,10 +87,10 @@ format_range(Range, Table, _Interval, _InstantRateFun, SamplesFun) ->
                 exometer_slide:foldl(
                   Range#range.first, fun extract_samples/2,
                   {empty(Table, []), Empty0, 0, empty, Range, Range#range.first,
-		   {undefined, undefined}},
-		  Slide),
-	    Total = ensure_total(Table, S1),
-	    Rate = rate_from_difference(Table, S1, S2),
+                   {undefined, undefined}},
+                  Slide),
+            Total = ensure_total(Table, S1),
+            Rate = rate_from_difference(Table, S1, S2),
             {Samples, SampleTotals, Length} = fill_range(Samples0, SampleTotals0,
                                                          Length0, Range, Empty0, Previous),
             format_rate(Table, Total, Rate, Samples, SampleTotals, Length)
@@ -135,7 +135,7 @@ calculate_instant_rate(Fun, Table, RangePoint) ->
           case exometer_slide:last_two(Slide) of
               [] -> {empty(Table, 0), empty(Table, 0.0)};
               [Last | T] ->
-		  Total = get_total(Slide, Table),
+                  Total = get_total(Slide, Table),
                   Rate = rate_from_last_increment(Table, Last, T, RangePoint),
                   {Total, Rate}
           end
@@ -163,22 +163,22 @@ extract_samples(last, {_, _, _, empty, #range{last = Last}, Next, _} = Acc)
   when Next < Last ->
     Acc;
 extract_samples(last, {Sample0, Totals0, Length, {_TS, Values},
-		       #range{last = Last, incr = Incr} = Range, Next, TwoLast})
+                       #range{last = Last, incr = Incr} = Range, Next, TwoLast})
   when Next < Last ->
     MissingSamples = missing_samples(Next, Incr, Last),
     LastS = lists:last(MissingSamples),
     {Sample, Totals} = append_missing_samples(
-			 MissingSamples, Values, Sample0, Totals0),
+                         MissingSamples, Values, Sample0, Totals0),
     {Sample, Totals, Length + length(MissingSamples), empty, Range, LastS + Incr,
      keep_two_last({LastS, Values}, TwoLast)};
 extract_samples(last, {Sample0, Totals0, Length, {_TS, Values},
-		       #range{last = Last, incr = Incr} = Range, Next, TwoLast})
+                       #range{last = Last, incr = Incr} = Range, Next, TwoLast})
   when Next =:= Last ->
     {Sample, Totals} = append_full_sample(Last, Values, Sample0, Totals0),
     {Sample, Totals, Length + 1, empty, Range, Next + Incr,
      keep_two_last({Next, Values}, TwoLast)};
 extract_samples(last, {Sample0, Totals0, Length, {TS, Values}, #range{last = Last, incr = Incr} = Range,
-		    Next, TwoLast})
+                       Next, TwoLast})
   when Next > Last, TS =< Last, TS > (Next - Incr) ->
     {Sample, Totals} = append_full_sample(Last, Values, Sample0, Totals0),
     {Sample, Totals, Length + 1, empty, Range, Next, keep_two_last({Last, Values}, TwoLast)};
@@ -186,7 +186,7 @@ extract_samples(_Sa, {_, _, _, empty, #range{last = Last}, Next, _} = Acc)
   when Next > Last ->
     Acc;
 extract_samples({TS, _Values} = Sa, {Sample0, Totals0, Length, _,
-				     #range{last = Last} = Range, Next, TwoLast})
+                                     #range{last = Last} = Range, Next, TwoLast})
   when Next > Last, TS =< Last ->
     {Sample0, Totals0, Length, Sa, Range, Next, TwoLast};
 extract_samples(_L, {_, _, _, _P, #range{last = Last}, Next, _} = Acc)
@@ -196,20 +196,20 @@ extract_samples({TS, _Values} = Sa, {S, T, L, _, R, Next, LT})
   when TS < Next ->
     {S, T, L, Sa, R, Next, LT};
 extract_samples({TS, Values} = Sa, {Sample0, Totals0, Length, _,
-				    #range{incr = Incr} = Range, Next, TwoLast})
+                                    #range{incr = Incr} = Range, Next, TwoLast})
   when TS =:= Next ->
     {Sample, Totals} = append_full_sample(TS, Values, Sample0, Totals0),
     {Sample, Totals, Length + 1, Sa, Range, Next + Incr, keep_two_last(Sa, TwoLast)};
 extract_samples({TS, Values} = Sa, {Sample0, Totals0, Length, Previous,
-				    #range{incr = Incr, last = Last} = Range,
-				    Next, TwoLast})
+                                    #range{incr = Incr, last = Last} = Range,
+                Next, TwoLast})
   when TS > Next ->
     Max = min(Last, TS - 1),
     MissingSamples = missing_samples(Next, Incr, Max),
     LastS = lists:last(MissingSamples),
     PreviousSample = select_missing_sample(Previous, Values),
     {Sample, Totals} = append_missing_samples(
-			 MissingSamples, PreviousSample, Sample0, Totals0),
+                         MissingSamples, PreviousSample, Sample0, Totals0),
     {Sample, Totals, Length + length(MissingSamples), Sa, Range, LastS + Incr,
      keep_two_last({LastS, PreviousSample}, TwoLast)}.
 
@@ -220,8 +220,8 @@ keep_two_last(L, {P1, _P2}) ->
 
 get_total(Slide, Table) ->
     case exometer_slide:last(Slide) of
-	undefined -> empty(Table, 0);
-	Other -> Other
+        undefined -> empty(Table, 0);
+        Other -> Other
     end.
 
 select_missing_sample(empty, Current) ->
