@@ -121,7 +121,8 @@ http_delete(Config, Path, User, Pass, CodeExp) ->
 format_for_upload(none) ->
     <<"">>;
 format_for_upload(List) ->
-    iolist_to_binary(mochijson2:encode({struct, List})).
+    R = iolist_to_binary(mochijson2:encode({struct, List})),
+    R.
 
 assert_code({one_of, CodesExpected}, CodeAct, Type, Path, Body) when is_list(CodesExpected) ->
     case lists:member(CodeAct, CodesExpected) of

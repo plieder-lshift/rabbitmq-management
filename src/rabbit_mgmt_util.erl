@@ -507,7 +507,7 @@ decode(Keys, Body) ->
     end.
 
 decode(<<"">>) ->
-    {ok, []};
+    {ok, #{}};
 
 decode(Body) ->
     try
@@ -530,7 +530,7 @@ http_to_amqp(MethodName, ReqData, Context, Transformers, Extra) ->
             case decode(Body) of
                 {ok, Props} ->
                     try
-                        Node = case pget(<<"node">>, Props) of
+                        Node = case maps:get(<<"node">>, Props, undefined) of
                                    undefined -> node();
                                    N         -> rabbit_nodes:make(
                                                   binary_to_list(N))
@@ -547,7 +547,7 @@ http_to_amqp(MethodName, ReqData, Context, Transformers, Extra) ->
     end.
 
 props_to_method(MethodName, Props, Transformers, Extra) ->
-    Props1 = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- Props],
+    Props1 = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- maps:to_list(Props)],
     props_to_method(
       MethodName, rabbit_mgmt_format:format(Props1 ++ Extra, {Transformers, true})).
 
@@ -676,8 +676,8 @@ set_resp_header(K, V, ReqData) ->
 
 strip_crlf(Str) -> lists:append(string:tokens(Str, "\r\n")).
 
-args({struct, L}) -> args(L);
-args(L)           -> rabbit_mgmt_format:to_amqp_table(L).
+args([]) -> args(#{});
+args(L)  -> rabbit_mgmt_format:to_amqp_table(L).
 
 %% Make replying to a post look like anything else...
 post_respond({true, ReqData, Context}) ->

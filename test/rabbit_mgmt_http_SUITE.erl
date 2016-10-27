@@ -1798,9 +1798,11 @@ publish_fail_test(Config) ->
 
 publish_base64_test(Config) ->
     %% "abcd"
-    Msg     = msg(<<"publish_base64_test">>, [], <<"YWJjZA==">>, <<"base64">>),
-    BadMsg1 = msg(<<"publish_base64_test">>, [], <<"flibble">>,  <<"base64">>),
-    BadMsg2 = msg(<<"publish_base64_test">>, [], <<"YWJjZA==">>, <<"base99">>),
+    %% @todo Note that we used to accept [] instead of {struct, []} when we shouldn't have.
+    %% This is a breaking change and probably needs to be documented.
+    Msg     = msg(<<"publish_base64_test">>, {struct, []}, <<"YWJjZA==">>, <<"base64">>),
+    BadMsg1 = msg(<<"publish_base64_test">>, {struct, []}, <<"flibble">>,  <<"base64">>),
+    BadMsg2 = msg(<<"publish_base64_test">>, {struct, []}, <<"YWJjZA==">>, <<"base99">>),
     http_put(Config, "/queues/%2f/publish_base64_test", [], {group, '2xx'}),
     http_post(Config, "/exchanges/%2f/amq.default/publish", Msg, ?OK),
     http_post(Config, "/exchanges/%2f/amq.default/publish", BadMsg1, ?BAD_REQUEST),
@@ -1814,7 +1816,7 @@ publish_base64_test(Config) ->
     passed.
 
 publish_unrouted_test(Config) ->
-    Msg = msg(<<"hmmm">>, [], <<"Hello world">>),
+    Msg = msg(<<"hmmm">>, {struct, []}, <<"Hello world">>),
     ?assertEqual([{routed, false}],
                  http_post(Config, "/exchanges/%2f/amq.default/publish", Msg, ?OK)).
 
@@ -1823,7 +1825,7 @@ if_empty_unused_test(Config) ->
     http_put(Config, "/queues/%2f/test", [], {group, '2xx'}),
     http_post(Config, "/bindings/%2f/e/test/q/test", [], {group, '2xx'}),
     http_post(Config, "/exchanges/%2f/amq.default/publish",
-              msg(<<"test">>, [], <<"Hello world">>), ?OK),
+              msg(<<"test">>, {struct, []}, <<"Hello world">>), ?OK),
     http_delete(Config, "/queues/%2f/test?if-empty=true", ?BAD_REQUEST),
     http_delete(Config, "/exchanges/%2f/test?if-unused=true", ?BAD_REQUEST),
     http_delete(Config, "/queues/%2f/test/contents", {group, '2xx'}),

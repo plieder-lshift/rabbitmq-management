@@ -292,11 +292,8 @@ tokenise(Str) ->
                   tokenise(string:sub_string(Str, Count + 2))]
     end.
 
-%% @todo that one is tough
-to_amqp_table({struct, T}) ->
-    to_amqp_table(T);
-to_amqp_table(T) ->
-    [to_amqp_table_row(K, V) || {K, V} <- T].
+to_amqp_table(M) when is_map(M) ->
+    lists:reverse(maps:fold(fun(K, V, Acc) -> [to_amqp_table_row(K, V)|Acc] end, [], M)).
 
 to_amqp_table_row(K, V) ->
     {T, V2} = type_val(V),
@@ -305,7 +302,7 @@ to_amqp_table_row(K, V) ->
 to_amqp_array(L) ->
     [type_val(I) || I <- L].
 
-type_val({struct, M})          -> {table,   to_amqp_table(M)};
+type_val(M) when is_map(M)     -> {table,   to_amqp_table(M)};
 type_val(L) when is_list(L)    -> {array,   to_amqp_array(L)};
 type_val(X) when is_binary(X)  -> {longstr, X};
 type_val(X) when is_integer(X) -> {long,    X};
@@ -375,10 +372,7 @@ record(Record, Fields) ->
                              end, {[], 2}, Fields),
     Res.
 
-to_basic_properties({struct, P}) ->
-    to_basic_properties(P);
-
-to_basic_properties(Props) ->
+to_basic_properties(Props) when is_map(Props) ->
     E = fun (A, B) -> throw({error, {A, B}}) end,
     Fmt = fun (headers,       H)                    -> to_amqp_table(H);
               (delivery_mode, V) when is_integer(V) -> V;
@@ -392,7 +386,7 @@ to_basic_properties(Props) ->
           end,
     {Res, _Ix} = lists:foldl(
                    fun (K, {P, Ix}) ->
-                           {case proplists:get_value(a2b(K), Props) of
+                           {case maps:get(a2b(K), Props, undefined) of
                                 undefined -> P;
                                 V         -> setelement(Ix, P, Fmt(K, V))
                             end, Ix + 1}
