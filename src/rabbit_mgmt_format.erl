@@ -457,10 +457,6 @@ format_null_item({Key, ''}) ->
     {Key, null};
 format_null_item({Key, Value}) when is_list(Value) ->
     {Key, format_nulls(Value)};
-format_null_item({Key, {struct, Struct}}) ->
-    {Key, {struct, format_nulls(Struct)}};
-format_null_item({Key, {array, Struct}}) ->
-    {Key, {array, format_nulls(Struct)}};
 format_null_item({Key, Value}) ->
     {Key, Value};
 format_null_item([{_K, _V} | _T] = L) ->

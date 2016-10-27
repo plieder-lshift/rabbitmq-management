@@ -198,6 +198,7 @@ reply(Facts, ReqData, Context) ->
 reply0(Facts, ReqData, Context) ->
     ReqData1 = set_resp_header("Cache-Control", "no-cache", ReqData),
     try
+        error_logger:error_msg("FACTS ~p~nNULLS ~p~n", [Facts, rabbit_mgmt_format:format_nulls(Facts)]),
         {rabbit_json:encode(rabbit_mgmt_format:format_nulls(Facts)), ReqData1,
 	 Context}
     catch exit:{json_encode, E} ->
@@ -393,8 +394,6 @@ get_dotted_value0([Key], Item) ->
 get_dotted_value0([Key | Keys], Item) ->
     get_dotted_value0(Keys, pget_bin(list_to_binary(Key), Item, [])).
 
-pget_bin(Key, {struct, List}, Default) ->
-    pget_bin(Key, List, Default);
 pget_bin(Key, List, Default) ->
     case lists:partition(fun ({K, _V}) -> a2b(K) =:= Key end, List) of
         {[{_K, V}], _} -> V;
@@ -417,8 +416,6 @@ columns(ReqData) ->
 
 extract_column_items(Item, all) ->
     Item;
-extract_column_items({struct, L}, Cols) ->
-    extract_column_items(L, Cols);
 extract_column_items(Item = [T | _], Cols) when is_tuple(T) ->
     [{K, extract_column_items(V, descend_columns(a2b(K), Cols))} ||
         {K, V} <- Item, want_column(a2b(K), Cols)];
