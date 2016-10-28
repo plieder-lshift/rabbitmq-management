@@ -109,4 +109,7 @@ fetch_cached_with_different_args_invalidates_cache(_Config) ->
                                                            timer:sleep(100),
                                                            123
                                                    end, [42]),
-    {ok, 321} = rabbit_mgmt_db_cache:fetch(banana, fun(_) -> 321 end, [442]).
+    {ok, 321} = rabbit_mgmt_db_cache:fetch(banana, fun(_) ->
+                                                           timer:sleep(100),
+                                                           321 end, [442]),
+    {ok, 321} = rabbit_mgmt_db_cache:fetch(banana, fun(_) -> 456 end, [442]).

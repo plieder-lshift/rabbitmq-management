@@ -44,6 +44,7 @@
                      {rabbit_mgmt_db_cache, start_link, [Key]},
                                      permanent, 5000, worker,
                                      [rabbit_mgmt_db_cache]}).
+-define(RESET_STATE(State), State#state{data = none, args = []}).
 
 %% Implements an adaptive cache that times the value generating fun
 %% and uses the return value as the cached value for the time it took
@@ -106,7 +107,7 @@ handle_call({fetch, FetchFun, FunArgs}, _From,
     try timer:tc(FetchFun, FunArgs) of
         {Time, Data} ->
             case trunc(Time / 1000 * Mult) of
-                0 -> {reply, {ok, Data}, State}; % no need to cache that
+                0 -> {reply, {ok, Data}, ?RESET_STATE(State)}; % no need to cache that
                 T ->
                     {ok, TimerRef} = timer:send_after(T, self(), purge_cache),
                     {reply, {ok, Data}, State#state{data = Data,
@@ -120,14 +121,14 @@ handle_call({fetch, _FetchFun, _}, _From, #state{data = Data} = State) ->
     Reply = {ok, Data},
     {reply, Reply, State};
 handle_call(purge_cache, _From, State) ->
-    {reply, ok, State#state{data = none}}.
+    {reply, ok, ?RESET_STATE(State)}.
 
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(purge_cache, State) ->
-    {noreply, State#state{data = none}};
+    {noreply, ?RESET_STATE(State)};
 handle_info(_Info, State) ->
     {noreply, State}.
 
