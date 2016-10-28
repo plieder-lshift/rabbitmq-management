@@ -200,8 +200,15 @@ cleanup(I) ->
 
 %% @todo There wasn't a specific order before; now there is; maybe we shouldn't have one?
 assert_list(Exp, Act) ->
-    _ = [assert_item(ExpI, ActI) || {ExpI, ActI} <- lists:zip(Exp, Act)],
-    ok.
+    case length(Exp) == length(Act) of
+        true  -> ok;
+        false -> throw({expected, Exp, actual, Act})
+    end,
+    [case length(lists:filter(fun(ActI) -> test_item(ExpI, ActI) end, Act)) of
+         1 -> ok;
+         N -> throw({found, N, ExpI, in, Act})
+     end || ExpI <- Exp].
+    %_ = [assert_item(ExpI, ActI) || {ExpI, ActI} <- lists:zip(Exp, Act)],
 
 assert_item(ExpI, ActI) ->
     ExpI = maps:with(maps:keys(ExpI), ActI),
@@ -214,8 +221,8 @@ test_item(Exp, Act) ->
     end.
 
 test_item0(Exp, Act) ->
-    [{did_not_find, ExpI, in, Act} || ExpI <- Exp,
-                                      not lists:member(ExpI, Act)].
+    [{did_not_find, KeyExpI, in, Act} || KeyExpI <- maps:keys(Exp),
+        maps:get(KeyExpI, Exp) =/= maps:get(KeyExpI, Act, undefined)].
 
 assert_keys(Exp, Act) ->
     case test_key0(Exp, Act) of

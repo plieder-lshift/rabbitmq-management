@@ -706,17 +706,17 @@ permissions_vhost_test(Config) ->
     http_put(Config, "/permissions/myvhost1/myuser", PermArgs, {group, '2xx'}),
     http_put(Config, "/permissions/myvhost1/guest", PermArgs, {group, '2xx'}),
     http_put(Config, "/permissions/myvhost2/guest", PermArgs, {group, '2xx'}),
-    assert_list([[{name, <<"/">>}],
-                 [{name, <<"myvhost1">>}],
-                 [{name, <<"myvhost2">>}]], http_get(Config, "/vhosts", ?OK)),
-    assert_list([[{name, <<"myvhost1">>}]],
+    assert_list([#{name => <<"/">>},
+                 #{name => <<"myvhost1">>},
+                 #{name => <<"myvhost2">>}], http_get(Config, "/vhosts", ?OK)),
+    assert_list([#{name => <<"myvhost1">>}],
                 http_get(Config, "/vhosts", "myuser", "myuser", ?OK)),
     http_put(Config, "/queues/myvhost1/myqueue", QArgs, {group, '2xx'}),
     http_put(Config, "/queues/myvhost2/myqueue", QArgs, {group, '2xx'}),
     Test1 =
         fun(Path) ->
                 Results = http_get(Config, Path, "myuser", "myuser", ?OK),
-                [case pget(vhost, Result) of
+                [case maps:get(vhost, Result) of
                      <<"myvhost2">> ->
                          throw({got_result_from_vhost2_in, Path, Result});
                      _ ->
@@ -860,9 +860,9 @@ consumers_test(Config) ->
       Ch, #'basic.consume'{queue        = <<"test">>,
                            no_ack       = false,
                            consumer_tag = <<"my-ctag">> }, self()),
-    assert_list([[{exclusive,    false},
-                  {ack_required, true},
-                  {consumer_tag, <<"my-ctag">>}]], http_get(Config, "/consumers")),
+    assert_list([#{exclusive    => false,
+                   ack_required => true,
+                   consumer_tag => <<"my-ctag">>}], http_get(Config, "/consumers")),
     amqp_connection:close(Conn),
     http_delete(Config, "/queues/%2f/test", {group, '2xx'}),
     passed.
@@ -873,16 +873,17 @@ defs(Config, Key, URI, CreateMethod, Args) ->
 
 defs_v(Config, Key, URI, CreateMethod, Args) ->
     Rep1 = fun (S, S2) -> re:replace(S, "<vhost>", S2, [{return, list}]) end,
-    Rep2 = fun (L, V2) -> lists:keymap(fun (vhost) -> V2;
-                                           (V)     -> V end, 2, L) end,
+    ReplaceVHostInArgs = fun(M, V2) -> maps:map(fun(vhost, _) -> V2;
+                                             (_, V1)    -> V1 end, M) end,
+
     %% Test against default vhost
-    defs(Config, Key, Rep1(URI, "%2f"), CreateMethod, Rep2(Args, <<"/">>)),
+    defs(Config, Key, Rep1(URI, "%2f"), CreateMethod, ReplaceVHostInArgs(Args, <<"/">>)),
 
     %% Test against new vhost
     http_put(Config, "/vhosts/test", none, {group, '2xx'}),
     PermArgs = [{configure, <<".*">>}, {write, <<".*">>}, {read, <<".*">>}],
     http_put(Config, "/permissions/test/guest", PermArgs, {group, '2xx'}),
-    defs(Config, Key, Rep1(URI, "test"), CreateMethod, Rep2(Args, <<"test">>),
+    defs(Config, Key, Rep1(URI, "test"), CreateMethod, ReplaceVHostInArgs(Args, <<"test">>),
          fun(URI2) -> http_delete(Config, URI2, {group, '2xx'}),
                       http_delete(Config, "/vhosts/test", {group, '2xx'}) end).
 
@@ -902,7 +903,7 @@ defs(Config, Key, URI, CreateMethod, Args, DeleteFun) ->
     URI2 = create(Config, CreateMethod, URI, Args),
     %% Make sure it ends up in definitions
     Definitions = http_get(Config, "/definitions", ?OK),
-    true = lists:any(fun(I) -> test_item(Args, I) end, pget(Key, Definitions)),
+    true = lists:any(fun(I) -> test_item(Args, I) end, maps:get(Key, Definitions)),
 
     %% Delete it
     DeleteFun(URI2),
@@ -928,56 +929,56 @@ definitions_test(Config) ->
     register_parameters_and_policy_validator(Config),
 
     defs_v(Config, queues, "/queues/<vhost>/my-queue", put,
-           [{name,    <<"my-queue">>},
-            {durable, true}]),
+           #{name    => <<"my-queue">>,
+             durable => true}),
     defs_v(Config, exchanges, "/exchanges/<vhost>/my-exchange", put,
-           [{name, <<"my-exchange">>},
-            {type, <<"direct">>}]),
+           #{name => <<"my-exchange">>,
+             type => <<"direct">>}),
     defs_v(Config, bindings, "/bindings/<vhost>/e/amq.direct/e/amq.fanout", post,
-           [{routing_key, <<"routing">>}, {arguments, []}]),
+           #{routing_key => <<"routing">>, arguments => #{}}),
     defs_v(Config, policies, "/policies/<vhost>/my-policy", put,
-           [{vhost,      vhost},
-            {name,       <<"my-policy">>},
-            {pattern,    <<".*">>},
-            {definition, [{testpos, [1, 2, 3]}]},
-            {priority,   1}]),
+           #{vhost      => vhost,
+             name       => <<"my-policy">>,
+             pattern    => <<".*">>,
+             definition => #{testpos => [1, 2, 3]},
+             priority   => 1}),
     defs_v(Config, parameters, "/parameters/test/<vhost>/good", put,
-           [{vhost,     vhost},
-            {component, <<"test">>},
-            {name,      <<"good">>},
-            {value,     <<"ignore">>}]),
+           #{vhost     => vhost,
+             component => <<"test">>,
+             name      => <<"good">>,
+             value     => <<"ignore">>}),
     defs(Config, users, "/users/myuser", put,
-         [{name,          <<"myuser">>},
-          {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-          {hashing_algorithm, <<"rabbit_password_hashing_sha256">>},
-          {tags,          <<"management">>}]),
+         #{name              => <<"myuser">>,
+           password_hash     => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+           hashing_algorithm => <<"rabbit_password_hashing_sha256">>,
+           tags              => <<"management">>}),
     defs(Config, vhosts, "/vhosts/myvhost", put,
-         [{name, <<"myvhost">>}]),
+         #{name => <<"myvhost">>}),
     defs(Config, permissions, "/permissions/%2f/guest", put,
-         [{user,      <<"guest">>},
-          {vhost,     <<"/">>},
-          {configure, <<"c">>},
-          {write,     <<"w">>},
-          {read,      <<"r">>}]),
+         #{user      => <<"guest">>,
+           vhost     => <<"/">>,
+           configure => <<"c">>,
+           write     => <<"w">>,
+           read      => <<"r">>}),
 
     %% We just messed with guest's permissions
     http_put(Config, "/permissions/%2f/guest",
-             [{configure, <<".*">>},
-              {write,     <<".*">>},
-              {read,      <<".*">>}], {group, '2xx'}),
+             #{configure => <<".*">>,
+               write     => <<".*">>,
+               read      => <<".*">>}, {group, '2xx'}),
     BrokenConfig =
-        [{users,       []},
-         {vhosts,      []},
-         {permissions, []},
-         {queues,      []},
-         {exchanges,   [[{name,        <<"amq.direct">>},
-                         {vhost,       <<"/">>},
-                         {type,        <<"definitely not direct">>},
-                         {durable,     true},
-                         {auto_delete, false},
-                         {arguments,   []}
-                        ]]},
-         {bindings,    []}],
+        #{users       => [],
+          vhosts      => [],
+          permissions => [],
+          queues      => [],
+          exchanges   => [#{name      =>  <<"amq.direct">>,
+                          vhost       => <<"/">>,
+                          type        => <<"definitely not direct">>,
+                          durable     => true,
+                          auto_delete => false,
+                          arguments   => []}
+                         ],
+          bindings    => []},
     http_post(Config, "/definitions", BrokenConfig, ?BAD_REQUEST),
 
     unregister_parameters_and_policy_validator(Config),
@@ -985,8 +986,8 @@ definitions_test(Config) ->
 
 defs_vhost(Config, Key, URI, CreateMethod, Args) ->
     Rep1 = fun (S, S2) -> re:replace(S, "<vhost>", S2, [{return, list}]) end,
-    Rep2 = fun (L, V2) -> lists:keymap(fun (vhost) -> V2;
-                                           (V)     -> V end, 2, L) end,
+    ReplaceVHostInArgs = fun(M, V2) -> maps:map(fun(vhost, _) -> V2;
+        (_, V1)    -> V1 end, M) end,
 
     %% Create test vhost
     http_put(Config, "/vhosts/test", none, {group, '2xx'}),
@@ -995,12 +996,12 @@ defs_vhost(Config, Key, URI, CreateMethod, Args) ->
 
     %% Test against default vhost
     defs_vhost(Config, Key, URI, Rep1, "%2f", "test", CreateMethod,
-               Rep2(Args, <<"/">>), Rep2(Args, <<"test">>),
+               ReplaceVHostInArgs(Args, <<"/">>), ReplaceVHostInArgs(Args, <<"test">>),
                fun(URI2) -> http_delete(Config, URI2, {group, '2xx'}) end),
 
     %% Test against test vhost
     defs_vhost(Config, Key, URI, Rep1, "test", "%2f", CreateMethod,
-               Rep2(Args, <<"test">>), Rep2(Args, <<"/">>),
+               ReplaceVHostInArgs(Args, <<"test">>), ReplaceVHostInArgs(Args, <<"/">>),
                fun(URI2) -> http_delete(Config, URI2, {group, '2xx'}) end),
 
     %% Remove test vhost
@@ -1013,18 +1014,18 @@ defs_vhost(Config, Key, URI0, Rep1, VHost1, VHost2, CreateMethod, Args1, Args2,
     URI2 = create(Config, CreateMethod, Rep1(URI0, VHost1), Args1),
     %% Make sure it ends up in definitions
     Definitions = http_get(Config, "/definitions/" ++ VHost1, ?OK),
-    true = lists:any(fun(I) -> test_item(Args1, I) end, pget(Key, Definitions)),
+    true = lists:any(fun(I) -> test_item(Args1, I) end, maps:get(Key, Definitions)),
 
     %% Make sure it is not in the other vhost
     Definitions0 = http_get(Config, "/definitions/" ++ VHost2, ?OK),
-    false = lists:any(fun(I) -> test_item(Args2, I) end, pget(Key, Definitions0)),
+    false = lists:any(fun(I) -> test_item(Args2, I) end, maps:get(Key, Definitions0)),
 
     %% Post the definitions back
     http_post(Config, "/definitions/" ++ VHost2, Definitions, {group, '2xx'}),
 
     %% Make sure it is now in the other vhost
     Definitions1 = http_get(Config, "/definitions/" ++ VHost2, ?OK),
-    true = lists:any(fun(I) -> test_item(Args2, I) end, pget(Key, Definitions1)),
+    true = lists:any(fun(I) -> test_item(Args2, I) end, maps:get(Key, Definitions1)),
 
     %% Delete it
     DeleteFun(URI2),
@@ -1039,80 +1040,80 @@ definitions_vhost_test(Config) ->
     register_parameters_and_policy_validator(Config),
 
     defs_vhost(Config, queues, "/queues/<vhost>/my-queue", put,
-               [{name,    <<"my-queue">>},
-                {durable, true}]),
+               #{name    => <<"my-queue">>,
+                 durable => true}),
     defs_vhost(Config, exchanges, "/exchanges/<vhost>/my-exchange", put,
-               [{name, <<"my-exchange">>},
-                {type, <<"direct">>}]),
+               #{name => <<"my-exchange">>,
+                 type => <<"direct">>}),
     defs_vhost(Config, bindings, "/bindings/<vhost>/e/amq.direct/e/amq.fanout", post,
-               [{routing_key, <<"routing">>}, {arguments, []}]),
+               #{routing_key => <<"routing">>, arguments => #{}}),
     defs_vhost(Config, policies, "/policies/<vhost>/my-policy", put,
-               [{vhost,      vhost},
-                {name,       <<"my-policy">>},
-                {pattern,    <<".*">>},
-                {definition, [{testpos, [1, 2, 3]}]},
-                {priority,   1}]),
+               #{vhost      => vhost,
+                 name       => <<"my-policy">>,
+                 pattern    => <<".*">>,
+                 definition => #{testpos => [1, 2, 3]},
+                 priority   => 1}),
 
     Upload =
-        [{queues,      []},
-         {exchanges,   []},
-         {policies,    []},
-         {bindings,    []}],
+        #{queues     => [],
+          exchanges  => [],
+          policies   => [],
+          bindings   => []},
     http_post(Config, "/definitions/othervhost", Upload, ?BAD_REQUEST),
 
     unregister_parameters_and_policy_validator(Config),
     passed.
 
 definitions_password_test(Config) ->
-                                                % Import definitions from 3.5.x
-    Config35 = [{rabbit_version, <<"3.5.4">>},
-                {users, [[{name,          <<"myuser">>},
-                          {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                          {tags,          <<"management">>}]
-                        ]}],
-    Expected35 = [{name,          <<"myuser">>},
-                  {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                  {hashing_algorithm, <<"rabbit_password_hashing_md5">>},
-                  {tags,          <<"management">>}],
+    % Import definitions from 3.5.x
+    Config35 = #{rabbit_version => <<"3.5.4">>,
+                 users => [#{name          => <<"myuser">>,
+                           password_hash => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                           tags          => <<"management">>}
+                        ]},
+    Expected35 = #{name              => <<"myuser">>,
+                   password_hash     => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                   hashing_algorithm => <<"rabbit_password_hashing_md5">>,
+                   tags              => <<"management">>},
     http_post(Config, "/definitions", Config35, {group, '2xx'}),
     Definitions35 = http_get(Config, "/definitions", ?OK),
-    Users35 = pget(users, Definitions35),
+    Users35 = maps:get(users, Definitions35),
     true = lists:any(fun(I) -> test_item(Expected35, I) end, Users35),
 
     %% Import definitions from from 3.6.0
-    Config36 = [{rabbit_version, <<"3.6.0">>},
-                {users, [[{name,          <<"myuser">>},
-                          {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                          {tags,          <<"management">>}]
-                        ]}],
-    Expected36 = [{name,          <<"myuser">>},
-                  {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                  {hashing_algorithm, <<"rabbit_password_hashing_sha256">>},
-                  {tags,          <<"management">>}],
+    Config36 = #{rabbit_version => <<"3.6.0">>,
+                 users => [#{name          => <<"myuser">>,
+                           password_hash => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                           tags          => <<"management">>}
+                        ]},
+    Expected36 = #{name              => <<"myuser">>,
+                   password_hash     => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                   hashing_algorithm => <<"rabbit_password_hashing_sha256">>,
+                   tags              => <<"management">>},
     http_post(Config, "/definitions", Config36, {group, '2xx'}),
 
     Definitions36 = http_get(Config, "/definitions", ?OK),
-    Users36 = pget(users, Definitions36),
+    Users36 = maps:get(users, Definitions36),
     true = lists:any(fun(I) -> test_item(Expected36, I) end, Users36),
 
     %% No hashing_algorithm provided
-    ConfigDefault = [{rabbit_version, <<"3.6.1">>},
-                     {users, [[{name,          <<"myuser">>},
-                               {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                               {tags,          <<"management">>}]
-                             ]}],
+    ConfigDefault = #{rabbit_version => <<"3.6.1">>,
+                      users => [#{name        => <<"myuser">>,
+                                password_hash => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                                tags          => <<"management">>}
+                             ]},
     rabbit_ct_broker_helpers:rpc(Config, 0, application, set_env, [rabbit,
                                                                    password_hashing_module,
                                                                    rabbit_password_hashing_sha512]),
 
-    ExpectedDefault = [{name,          <<"myuser">>},
-                       {password_hash, <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>},
-                       {hashing_algorithm, <<"rabbit_password_hashing_sha512">>},
-                       {tags,          <<"management">>}],
+    ExpectedDefault = #{name              => <<"myuser">>,
+                        password_hash     => <<"WAbU0ZIcvjTpxM3Q3SbJhEAM2tQ=">>,
+                        hashing_algorithm => <<"rabbit_password_hashing_sha512">>,
+                        tags              => <<"management">>},
     http_post(Config, "/definitions", ConfigDefault, {group, '2xx'}),
 
     DefinitionsDefault = http_get(Config, "/definitions", ?OK),
-    UsersDefault = pget(users, DefinitionsDefault),
+    UsersDefault = maps:get(users, DefinitionsDefault),
 
     true = lists:any(fun(I) -> test_item(ExpectedDefault, I) end, UsersDefault),
     passed.
@@ -1123,9 +1124,9 @@ definitions_remove_things_test(Config) ->
                                             exclusive = true }),
     http_get(Config, "/queues/%2f/my-exclusive", ?OK),
     Definitions = http_get(Config, "/definitions", ?OK),
-    [] = pget(queues, Definitions),
-    [] = pget(exchanges, Definitions),
-    [] = pget(bindings, Definitions),
+    [] = maps:get(queues, Definitions),
+    [] = maps:get(exchanges, Definitions),
+    [] = maps:get(bindings, Definitions),
     amqp_channel:close(Ch),
     close_connection(Conn),
     passed.
@@ -1147,13 +1148,13 @@ definitions_server_named_queue_test(Config) ->
     passed.
 
 aliveness_test(Config) ->
-    [{status, <<"ok">>}] = http_get(Config, "/aliveness-test/%2f", ?OK),
+    #{status := <<"ok">>} = http_get(Config, "/aliveness-test/%2f", ?OK),
     http_get(Config, "/aliveness-test/foo", ?NOT_FOUND),
     http_delete(Config, "/queues/%2f/aliveness-test", {group, '2xx'}),
     passed.
 
 healthchecks_test(Config) ->
-    [{status, <<"ok">>}] = http_get(Config, "/healthchecks/node", ?OK),
+    #{status := <<"ok">>} = http_get(Config, "/healthchecks/node", ?OK),
     http_get(Config, "/healthchecks/node/foo", ?NOT_FOUND),
     passed.
 
@@ -1171,28 +1172,30 @@ arguments_test(Config) ->
     http_delete(Config, "/exchanges/%2f/myexchange", {group, '2xx'}),
     http_delete(Config, "/queues/%2f/arguments_test", {group, '2xx'}),
     http_post(Config, "/definitions", Definitions, {group, '2xx'}),
-    [{'alternate-exchange', <<"amq.direct">>}] =
-        pget(arguments, http_get(Config, "/exchanges/%2f/myexchange", ?OK)),
-    [{'x-expires', 1800000}] =
-        pget(arguments, http_get(Config, "/queues/%2f/arguments_test", ?OK)),
-    true = lists:sort([{'x-match', <<"all">>}, {foo, <<"bar">>}]) =:=
-	lists:sort(pget(arguments,
-			http_get(Config, "/bindings/%2f/e/myexchange/q/arguments_test/" ++
-				     "~nXOkVwqZzUOdS9_HcBWheg", ?OK))),
+    #{'alternate-exchange' := <<"amq.direct">>} =
+        maps:get(arguments, http_get(Config, "/exchanges/%2f/myexchange", ?OK)),
+    #{'x-expires' := 1800000} =
+        maps:get(arguments, http_get(Config, "/queues/%2f/arguments_test", ?OK)),
+    assert_item(
+        #{'x-match' => <<"all">>, foo => <<"bar">>},
+        maps:get(arguments,
+            http_get(Config, "/bindings/%2f/e/myexchange/q/arguments_test/" ++
+            "~nXOkVwqZzUOdS9_HcBWheg", ?OK))
+    ),
     http_delete(Config, "/exchanges/%2f/myexchange", {group, '2xx'}),
     http_delete(Config, "/queues/%2f/arguments_test", {group, '2xx'}),
     passed.
 
 arguments_table_test(Config) ->
-    Args = [{'upstreams', [<<"amqp://localhost/%2f/upstream1">>,
-                           <<"amqp://localhost/%2f/upstream2">>]}],
-    XArgs = [{type, <<"headers">>},
-             {arguments, Args}],
+    Args = #{'upstreams' => [<<"amqp://localhost/%2f/upstream1">>,
+                             <<"amqp://localhost/%2f/upstream2">>]},
+    XArgs = #{type      => <<"headers">>,
+              arguments => Args},
     http_put(Config, "/exchanges/%2f/myexchange", XArgs, {group, '2xx'}),
     Definitions = http_get(Config, "/definitions", ?OK),
     http_delete(Config, "/exchanges/%2f/myexchange", {group, '2xx'}),
     http_post(Config, "/definitions", Definitions, {group, '2xx'}),
-    Args = pget(arguments, http_get(Config, "/exchanges/%2f/myexchange", ?OK)),
+    Args = maps:get(arguments, http_get(Config, "/exchanges/%2f/myexchange", ?OK)),
     http_delete(Config, "/exchanges/%2f/myexchange", {group, '2xx'}),
     passed.
 
@@ -1251,12 +1254,12 @@ exclusive_queue_test(Config) ->
     timer:sleep(1000), %% Sadly we need to sleep to let the stats update
     Path = "/queues/%2f/" ++ mochiweb_util:quote_plus(QName),
     Queue = http_get(Config, Path),
-    assert_item([{name,         QName},
-		 {vhost,       <<"/">>},
-		 {durable,     false},
-		 {auto_delete, false},
-		 {exclusive,   true},
-		 {arguments,   []}], Queue),
+    assert_item(#{name        => QName,
+		          vhost       => <<"/">>,
+		          durable     => false,
+		          auto_delete => false,
+		          exclusive   => true,
+		          arguments   => #{}}, Queue),
     amqp_channel:close(Ch),
     close_connection(Conn),
     passed.
@@ -1273,21 +1276,21 @@ connections_channels_pagination_test(Config) ->
 
     timer:sleep(1000), %% Sadly we need to sleep to let the stats update
     PageOfTwo = http_get(Config, "/connections?page=1&page_size=2", ?OK),
-    ?assertEqual(3, proplists:get_value(total_count, PageOfTwo)),
-    ?assertEqual(3, proplists:get_value(filtered_count, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(item_count, PageOfTwo)),
-    ?assertEqual(1, proplists:get_value(page, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_size, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_count, PageOfTwo)),
+    ?assertEqual(3, maps:get(total_count, PageOfTwo)),
+    ?assertEqual(3, maps:get(filtered_count, PageOfTwo)),
+    ?assertEqual(2, maps:get(item_count, PageOfTwo)),
+    ?assertEqual(1, maps:get(page, PageOfTwo)),
+    ?assertEqual(2, maps:get(page_size, PageOfTwo)),
+    ?assertEqual(2, maps:get(page_count, PageOfTwo)),
 
 
     TwoOfTwo = http_get(Config, "/channels?page=2&page_size=2", ?OK),
-    ?assertEqual(3, proplists:get_value(total_count, TwoOfTwo)),
-    ?assertEqual(3, proplists:get_value(filtered_count, TwoOfTwo)),
-    ?assertEqual(1, proplists:get_value(item_count, TwoOfTwo)),
-    ?assertEqual(2, proplists:get_value(page, TwoOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_size, TwoOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_count, TwoOfTwo)),
+    ?assertEqual(3, maps:get(total_count, TwoOfTwo)),
+    ?assertEqual(3, maps:get(filtered_count, TwoOfTwo)),
+    ?assertEqual(1, maps:get(item_count, TwoOfTwo)),
+    ?assertEqual(2, maps:get(page, TwoOfTwo)),
+    ?assertEqual(2, maps:get(page_size, TwoOfTwo)),
+    ?assertEqual(2, maps:get(page_count, TwoOfTwo)),
 
     amqp_channel:close(Ch),
     amqp_connection:close(Conn),
@@ -1309,39 +1312,39 @@ exchanges_pagination_test(Config) ->
     http_put(Config, "/exchanges/%2f/test2_reg", QArgs, {group, '2xx'}),
     http_put(Config, "/exchanges/vh1/reg_test3", QArgs, {group, '2xx'}),
     PageOfTwo = http_get(Config, "/exchanges?page=1&page_size=2", ?OK),
-    ?assertEqual(19, proplists:get_value(total_count, PageOfTwo)),
-    ?assertEqual(19, proplists:get_value(filtered_count, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(item_count, PageOfTwo)),
-    ?assertEqual(1, proplists:get_value(page, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_size, PageOfTwo)),
-    ?assertEqual(10, proplists:get_value(page_count, PageOfTwo)),
-    assert_list([[{name, <<"">>}, {vhost, <<"/">>}],
-		 [{name, <<"amq.direct">>}, {vhost, <<"/">>}]
-		], proplists:get_value(items, PageOfTwo)),
+    ?assertEqual(19, maps:get(total_count, PageOfTwo)),
+    ?assertEqual(19, maps:get(filtered_count, PageOfTwo)),
+    ?assertEqual(2, maps:get(item_count, PageOfTwo)),
+    ?assertEqual(1, maps:get(page, PageOfTwo)),
+    ?assertEqual(2, maps:get(page_size, PageOfTwo)),
+    ?assertEqual(10, maps:get(page_count, PageOfTwo)),
+    assert_list([#{name => <<"">>, vhost => <<"/">>},
+		 #{name => <<"amq.direct">>, vhost => <<"/">>}
+		], maps:get(items, PageOfTwo)),
 
     ByName = http_get(Config, "/exchanges?page=1&page_size=2&name=reg", ?OK),
-    ?assertEqual(19, proplists:get_value(total_count, ByName)),
-    ?assertEqual(2, proplists:get_value(filtered_count, ByName)),
-    ?assertEqual(2, proplists:get_value(item_count, ByName)),
-    ?assertEqual(1, proplists:get_value(page, ByName)),
-    ?assertEqual(2, proplists:get_value(page_size, ByName)),
-    ?assertEqual(1, proplists:get_value(page_count, ByName)),
-    assert_list([[{name, <<"test2_reg">>}, {vhost, <<"/">>}],
-		 [{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, ByName)),
+    ?assertEqual(19, maps:get(total_count, ByName)),
+    ?assertEqual(2, maps:get(filtered_count, ByName)),
+    ?assertEqual(2, maps:get(item_count, ByName)),
+    ?assertEqual(1, maps:get(page, ByName)),
+    ?assertEqual(2, maps:get(page_size, ByName)),
+    ?assertEqual(1, maps:get(page_count, ByName)),
+    assert_list([#{name => <<"test2_reg">>, vhost => <<"/">>},
+		 #{name => <<"reg_test3">>, vhost => <<"vh1">>}
+		], maps:get(items, ByName)),
 
 
     RegExByName = http_get(Config,
                            "/exchanges?page=1&page_size=2&name=^(?=^reg)&use_regex=true",
                            ?OK),
-    ?assertEqual(19, proplists:get_value(total_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(filtered_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(item_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(page, RegExByName)),
-    ?assertEqual(2, proplists:get_value(page_size, RegExByName)),
-    ?assertEqual(1, proplists:get_value(page_count, RegExByName)),
-    assert_list([[{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, RegExByName)),
+    ?assertEqual(19, maps:get(total_count, RegExByName)),
+    ?assertEqual(1, maps:get(filtered_count, RegExByName)),
+    ?assertEqual(1, maps:get(item_count, RegExByName)),
+    ?assertEqual(1, maps:get(page, RegExByName)),
+    ?assertEqual(2, maps:get(page_size, RegExByName)),
+    ?assertEqual(1, maps:get(page_count, RegExByName)),
+    assert_list([#{name => <<"reg_test3">>, vhost => <<"vh1">>}
+		], maps:get(items, RegExByName)),
 
 
     http_get(Config, "/exchanges?page=1000", ?BAD_REQUEST),
@@ -1369,13 +1372,13 @@ exchanges_pagination_permissions_test(Config) ->
     http_put(Config, "/exchanges/%2f/test0", QArgs, {group, '2xx'}),
     http_put(Config, "/exchanges/vh1/test1", QArgs, "admin","admin", {group, '2xx'}),
     FirstPage = http_get(Config, "/exchanges?page=1&name=test1","admin","admin", ?OK),
-    ?assertEqual(8, proplists:get_value(total_count, FirstPage)),
-    ?assertEqual(1, proplists:get_value(item_count, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page, FirstPage)),
-    ?assertEqual(100, proplists:get_value(page_size, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page_count, FirstPage)),
-    assert_list([[{name, <<"test1">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, FirstPage)),
+    ?assertEqual(8, maps:get(total_count, FirstPage)),
+    ?assertEqual(1, maps:get(item_count, FirstPage)),
+    ?assertEqual(1, maps:get(page, FirstPage)),
+    ?assertEqual(100, maps:get(page_size, FirstPage)),
+    ?assertEqual(1, maps:get(page_count, FirstPage)),
+    assert_list([#{name => <<"test1">>, vhost => <<"vh1">>}
+		], maps:get(items, FirstPage)),
     http_delete(Config, "/exchanges/%2f/test0", {group, '2xx'}),
     http_delete(Config, "/exchanges/vh1/test1","admin","admin", {group, '2xx'}),
     http_delete(Config, "/users/admin", {group, '2xx'}),
@@ -1396,78 +1399,78 @@ queue_pagination_test(Config) ->
     http_put(Config, "/queues/%2f/test2_reg", QArgs, {group, '2xx'}),
     http_put(Config, "/queues/vh1/reg_test3", QArgs, {group, '2xx'}),
     PageOfTwo = http_get(Config, "/queues?page=1&page_size=2", ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, PageOfTwo)),
-    ?assertEqual(4, proplists:get_value(filtered_count, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(item_count, PageOfTwo)),
-    ?assertEqual(1, proplists:get_value(page, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_size, PageOfTwo)),
-    ?assertEqual(2, proplists:get_value(page_count, PageOfTwo)),
-    assert_list([[{name, <<"test0">>}, {vhost, <<"/">>}],
-		 [{name, <<"test2_reg">>}, {vhost, <<"/">>}]
-		], proplists:get_value(items, PageOfTwo)),
+    ?assertEqual(4, maps:get(total_count, PageOfTwo)),
+    ?assertEqual(4, maps:get(filtered_count, PageOfTwo)),
+    ?assertEqual(2, maps:get(item_count, PageOfTwo)),
+    ?assertEqual(1, maps:get(page, PageOfTwo)),
+    ?assertEqual(2, maps:get(page_size, PageOfTwo)),
+    ?assertEqual(2, maps:get(page_count, PageOfTwo)),
+    assert_list([#{name => <<"test0">>, vhost => <<"/">>},
+		 #{name => <<"test2_reg">>, vhost => <<"/">>}
+		], maps:get(items, PageOfTwo)),
 
     SortedByName = http_get(Config, "/queues?sort=name&page=1&page_size=2", ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, SortedByName)),
-    ?assertEqual(4, proplists:get_value(filtered_count, SortedByName)),
-    ?assertEqual(2, proplists:get_value(item_count, SortedByName)),
-    ?assertEqual(1, proplists:get_value(page, SortedByName)),
-    ?assertEqual(2, proplists:get_value(page_size, SortedByName)),
-    ?assertEqual(2, proplists:get_value(page_count, SortedByName)),
-    assert_list([[{name, <<"reg_test3">>}, {vhost, <<"vh1">>}],
-		 [{name, <<"test0">>}, {vhost, <<"/">>}]
-		], proplists:get_value(items, SortedByName)),
+    ?assertEqual(4, maps:get(total_count, SortedByName)),
+    ?assertEqual(4, maps:get(filtered_count, SortedByName)),
+    ?assertEqual(2, maps:get(item_count, SortedByName)),
+    ?assertEqual(1, maps:get(page, SortedByName)),
+    ?assertEqual(2, maps:get(page_size, SortedByName)),
+    ?assertEqual(2, maps:get(page_count, SortedByName)),
+    assert_list([#{name => <<"reg_test3">>, vhost => <<"vh1">>},
+		 #{name => <<"test0">>, vhost => <<"/">>}
+		], maps:get(items, SortedByName)),
 
 
     FirstPage = http_get(Config, "/queues?page=1", ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, FirstPage)),
-    ?assertEqual(4, proplists:get_value(filtered_count, FirstPage)),
-    ?assertEqual(4, proplists:get_value(item_count, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page, FirstPage)),
-    ?assertEqual(100, proplists:get_value(page_size, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page_count, FirstPage)),
-    assert_list([[{name, <<"test0">>}, {vhost, <<"/">>}],
-		 [{name, <<"test1">>}, {vhost, <<"vh1">>}],
-		 [{name, <<"test2_reg">>}, {vhost, <<"/">>}],
-		 [{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, FirstPage)),
+    ?assertEqual(4, maps:get(total_count, FirstPage)),
+    ?assertEqual(4, maps:get(filtered_count, FirstPage)),
+    ?assertEqual(4, maps:get(item_count, FirstPage)),
+    ?assertEqual(1, maps:get(page, FirstPage)),
+    ?assertEqual(100, maps:get(page_size, FirstPage)),
+    ?assertEqual(1, maps:get(page_count, FirstPage)),
+    assert_list([#{name => <<"test0">>, vhost => <<"/">>},
+		 #{name => <<"test1">>, vhost => <<"vh1">>},
+		 #{name => <<"test2_reg">>, vhost => <<"/">>},
+		 #{name => <<"reg_test3">>, vhost =><<"vh1">>}
+		], maps:get(items, FirstPage)),
 
 
     ReverseSortedByName = http_get(Config,
                                    "/queues?page=2&page_size=2&sort=name&sort_reverse=true",
                                    ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, ReverseSortedByName)),
-    ?assertEqual(4, proplists:get_value(filtered_count, ReverseSortedByName)),
-    ?assertEqual(2, proplists:get_value(item_count, ReverseSortedByName)),
-    ?assertEqual(2, proplists:get_value(page, ReverseSortedByName)),
-    ?assertEqual(2, proplists:get_value(page_size, ReverseSortedByName)),
-    ?assertEqual(2, proplists:get_value(page_count, ReverseSortedByName)),
-    assert_list([[{name, <<"test0">>}, {vhost, <<"/">>}],
-		 [{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, ReverseSortedByName)),
+    ?assertEqual(4, maps:get(total_count, ReverseSortedByName)),
+    ?assertEqual(4, maps:get(filtered_count, ReverseSortedByName)),
+    ?assertEqual(2, maps:get(item_count, ReverseSortedByName)),
+    ?assertEqual(2, maps:get(page, ReverseSortedByName)),
+    ?assertEqual(2, maps:get(page_size, ReverseSortedByName)),
+    ?assertEqual(2, maps:get(page_count, ReverseSortedByName)),
+    assert_list([#{name => <<"test0">>, vhost => <<"/">>},
+		 #{name => <<"reg_test3">>, vhost => <<"vh1">>}
+		], maps:get(items, ReverseSortedByName)),
 
 
     ByName = http_get(Config, "/queues?page=1&page_size=2&name=reg", ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, ByName)),
-    ?assertEqual(2, proplists:get_value(filtered_count, ByName)),
-    ?assertEqual(2, proplists:get_value(item_count, ByName)),
-    ?assertEqual(1, proplists:get_value(page, ByName)),
-    ?assertEqual(2, proplists:get_value(page_size, ByName)),
-    ?assertEqual(1, proplists:get_value(page_count, ByName)),
-    assert_list([[{name, <<"test2_reg">>}, {vhost, <<"/">>}],
-		 [{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, ByName)),
+    ?assertEqual(4, maps:get(total_count, ByName)),
+    ?assertEqual(2, maps:get(filtered_count, ByName)),
+    ?assertEqual(2, maps:get(item_count, ByName)),
+    ?assertEqual(1, maps:get(page, ByName)),
+    ?assertEqual(2, maps:get(page_size, ByName)),
+    ?assertEqual(1, maps:get(page_count, ByName)),
+    assert_list([#{name => <<"test2_reg">>, vhost => <<"/">>},
+		 #{name => <<"reg_test3">>, vhost => <<"vh1">>}
+		], maps:get(items, ByName)),
 
     RegExByName = http_get(Config,
                            "/queues?page=1&page_size=2&name=^(?=^reg)&use_regex=true",
                            ?OK),
-    ?assertEqual(4, proplists:get_value(total_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(filtered_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(item_count, RegExByName)),
-    ?assertEqual(1, proplists:get_value(page, RegExByName)),
-    ?assertEqual(2, proplists:get_value(page_size, RegExByName)),
-    ?assertEqual(1, proplists:get_value(page_count, RegExByName)),
-    assert_list([[{name, <<"reg_test3">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, RegExByName)),
+    ?assertEqual(4, maps:get(total_count, RegExByName)),
+    ?assertEqual(1, maps:get(filtered_count, RegExByName)),
+    ?assertEqual(1, maps:get(item_count, RegExByName)),
+    ?assertEqual(1, maps:get(page, RegExByName)),
+    ?assertEqual(2, maps:get(page_size, RegExByName)),
+    ?assertEqual(1, maps:get(page_count, RegExByName)),
+    assert_list([#{name => <<"reg_test3">>, vhost => <<"vh1">>}
+		], maps:get(items, RegExByName)),
 
 
     http_get(Config, "/queues?page=1000", ?BAD_REQUEST),
@@ -1495,13 +1498,13 @@ queues_pagination_permissions_test(Config) ->
     http_put(Config, "/queues/%2f/test0", QArgs, {group, '2xx'}),
     http_put(Config, "/queues/vh1/test1", QArgs, "admin","admin", {group, '2xx'}),
     FirstPage = http_get(Config, "/queues?page=1","admin","admin", ?OK),
-    ?assertEqual(1, proplists:get_value(total_count, FirstPage)),
-    ?assertEqual(1, proplists:get_value(item_count, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page, FirstPage)),
-    ?assertEqual(100, proplists:get_value(page_size, FirstPage)),
-    ?assertEqual(1, proplists:get_value(page_count, FirstPage)),
-    assert_list([[{name, <<"test1">>}, {vhost, <<"vh1">>}]
-		], proplists:get_value(items, FirstPage)),
+    ?assertEqual(1, maps:get(total_count, FirstPage)),
+    ?assertEqual(1, maps:get(item_count, FirstPage)),
+    ?assertEqual(1, maps:get(page, FirstPage)),
+    ?assertEqual(100, maps:get(page_size, FirstPage)),
+    ?assertEqual(1, maps:get(page_count, FirstPage)),
+    assert_list([#{name => <<"test1">>, vhost => <<"vh1">>}
+		], maps:get(items, FirstPage)),
     http_delete(Config, "/queues/%2f/test0", {group, '2xx'}),
     http_delete(Config, "/queues/vh1/test1","admin","admin", {group, '2xx'}),
     http_delete(Config, "/users/admin", {group, '2xx'}),
